@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f8fc">
+  <title>RouterAI — Seu espaço de conversa</title>
+  <script src="theme.js"></script>
+  <link rel="stylesheet" href="styles.css">
+  <script src="vendor/marked.umd.js" defer></script>
+  <script src="vendor/purify.min.js" defer></script>
+  <script src="markdown.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <a class="brand" href="./" aria-label="RouterAI, início">
+        <span class="brand-icon" aria-hidden="true">r<span>↗</span></span>
+        <span>Router<span class="brand-accent">AI</span></span>
+      </a>
+      <div class="header-actions">
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Modo escuro" aria-pressed="false" title="Ativar modo escuro">
+          <svg class="moon-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.9 13A9 9 0 0 1 11 3.1 9 9 0 1 0 20.9 13Z"/></svg>
+          <svg class="sun-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42m0-14.14-1.42 1.42m-11.3 11.3-1.42 1.42"/></svg>
+        </button>
+        <button id="new-chat" class="new-chat" type="button"><span aria-hidden="true">＋</span> Nova conversa</button>
+      </div>
+    </header>
+
+    <main class="chat">
+      <div class="chat-heading">
+        <div><span class="eyebrow">SEU ASSISTENTE</span><h1>Uma conversa. Muitas possibilidades.</h1></div>
+        <span id="chat-status" class="chat-status">Nova conversa</span>
+      </div>
+
+      <section id="conversation" class="conversation" aria-label="Conversa">
+        <div id="welcome" class="welcome">
+          <div class="welcome-icon" aria-hidden="true">✳</div>
+          <p class="welcome-kicker">PODE CHEGAR COM UMA IDEIA</p>
+          <h2>Por onde começamos?</h2>
+          <p>Tire uma dúvida, explore uma ideia ou peça ajuda com código.<br class="desktop-break"> O RouterAI encontra o caminho com você.</p>
+          <div class="suggestions" aria-label="Sugestões para começar">
+            <button type="button" data-prompt="Pode me ajudar a entender um código?"><span aria-hidden="true">&lt;/&gt;</span> Entender um código <span aria-hidden="true">↗</span></button>
+            <button type="button" data-prompt="Quero explorar uma ideia. Pode me ajudar?"><span aria-hidden="true">✧</span> Explorar uma ideia <span aria-hidden="true">↗</span></button>
+          </div>
+        </div>
+        <div id="messages" class="messages" role="log" aria-label="Histórico de mensagens" aria-live="polite" aria-relevant="additions"></div>
+        <div id="loading" class="loading" role="status" hidden><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span> RouterAI está pensando…</div>
+      </section>
+
+      <div class="composer-area">
+        <p id="error" class="error" role="alert" hidden></p>
+        <form id="chat-form" class="composer">
+          <label class="sr-only" for="input">Sua mensagem</label>
+          <textarea id="input" name="input" rows="1" maxlength="20000" placeholder="Escreva sua mensagem…" required></textarea>
+          <button id="send" class="send" type="submit" aria-label="Enviar mensagem" disabled><svg width="21" height="21" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 19V5m-6 6 6-6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        </form>
+        <div class="composer-footer"><span>Enter para enviar · Shift + Enter para nova linha</span><span class="footer-brand">Feito para conversar.</span></div>
+      </div>
+    </main>
+    <footer class="page-footer">RouterAI <span aria-hidden="true">/</span> Uma ideia de cada vez.</footer>
+  </div>
+</body>
+</html>
