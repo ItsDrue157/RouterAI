@@ -11,7 +11,7 @@
         "prompt": "You are a great coding teacher"
     },
     "matematico":{
-        "name":"matematico",
+        "name":"matemático",
         "model":"qwen/qwen3-4b-2507",
         "prompt": "You are a great coding teacher"
     }
