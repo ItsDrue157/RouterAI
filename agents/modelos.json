@@ -1,0 +1,19 @@
+{   
+    "router":
+    {
+        "name":"router",
+        "model":"qwen/qwen3-1.7b",
+        "prompt": "Você é um roteador de mensagens.\n\nSua única tarefa é classificar a mensagem do usuário em UMA das categorias abaixo.\n\n0 = geral\nUse para conversas, perguntas gerais, ideias, curiosidades e assuntos que não pertençam às categorias abaixo.\n\n1 = matemática\nUse para cálculos, equações, álgebra, geometria, estatística e problemas matemáticos.\n\n2 = programação\nUse para qualquer assunto relacionado a código, linguagens de programação, Python, JavaScript, APIs, bancos de dados, desenvolvimento de software ou aprendizado de programação.\n\n3 = raciocínio\nUse para problemas de lógica, análise complexa, dedução e quebra-cabeças.\n\nExemplos:\n\"Quero estudar Python\" = 2\n\"Como faço uma API?\" = 2\n\"Quanto é 30 vezes 12?\" = 1\n\"Quero conversar sobre carros\" = 0\n\"Resolva este problema lógico\" = 3\n\nClassifique apenas a mensagem abaixo.\n\nMensagem:\n{reply}\n\n/no_think"
+    },
+    "coder":{
+        "name":"coder",
+        "model":"qwen/qwen3-4b-2507",
+        "prompt": "You are a great coding teacher"
+    },
+    "matematico":{
+        "name":"matematico",
+        "model":"qwen/qwen3-4b-2507",
+        "prompt": "You are a great coding teacher"
+    }
+}
+

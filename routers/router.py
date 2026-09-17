@@ -1,7 +1,10 @@
 from typing import Literal
 from pydantic import BaseModel
 import lmstudio as lms
+import json
 
+with open("agents/modelos.json", "r", encoding='utf-8') as arquivo:
+    modelos = json.load(arquivo)
 
 class RouterResponse(BaseModel):
     rota: Literal[0, 1, 2, 3]
@@ -9,23 +12,10 @@ class RouterResponse(BaseModel):
 
 def router(reply: str):
 
-    model = lms.llm("qwen/qwen3-1.7b")
+    model = lms.llm(modelos['router']['model'])
 
-    prompt = f"""
-Você é um roteador.
-
-Classifique a mensagem:
-0 = geral
-1 = matemática
-2 = programação
-3 = raciocínio
-
-Responda somente no formato solicitado.
-
-Mensagem:
-{reply}
-/no_think
-"""
+    prompt_base = modelos["router"]["prompt"]
+    prompt = prompt_base.format(reply=reply)
 
     result = model.respond(
         prompt,
@@ -36,6 +26,7 @@ Mensagem:
         }
     )
     # teste do erro string indices must be int not ''str''
+    print(prompt+'debug')
     print(result.parsed)
     print(type(result.parsed))
     return int(result.parsed["rota"])
