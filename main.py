@@ -4,8 +4,9 @@ from fastapi import FastAPI  # Criação e rotas da API
 from fastapi.middleware.cors import CORSMiddleware  # Libera requisições do frontend (CORS)
 from pydantic import BaseModel  # Validação dos dados da requisição (ChatRequest)
 from openai import OpenAI  # Conexão com os modelos no LM Studio
-from routers.router import processar_mensagem  # Roteamento de mensagens e agentes
+from routers.router import processar_mensagem  # Roteamento e execução dos agentes
 import json
+import logging
 
 # Caminhos dos bancos de dados dentro da pasta db/
 BASE_DIR = Path(__file__).resolve().parent
@@ -27,6 +28,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],)
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    handlers=[
+        logging.FileHandler("logs/routerai.log", encoding="utf-8"),
+        logging.StreamHandler()
+    ]
+)
+logging.getLogger("watchfiles.main").setLevel(logging.WARNING)
+
+log = logging.getLogger(__name__)
+
 
 class ChatRequest(BaseModel):
     chat_id: int
@@ -44,14 +57,18 @@ def buscar_historico(chat_id)-> list:
     with con:
         cursor.execute("SELECT role, content FROM messages WHERE chat_id=? ORDER BY id", (chat_id,))
         historico = cursor.fetchall()
+    log.info(f'O historico do {chat_id}, foi encontrado com sucesso.')
     return historico
 
 def montar_historico(historico):
     messages = []
-    
     for role, content in historico:
         messages.append({'role':role, 'content':content})
+    
     return messages
+
+
+
 
 def enviar_modelo(agente,chat_id ):
     client = OpenAI(base_url="http://localhost:1234/v1", api_key="lm-studio")
@@ -60,10 +77,12 @@ def enviar_modelo(agente,chat_id ):
 
     model_id = modelos[agente]['model']
     contexto = montar_historico(buscar_historico(chat_id))
+    
     contexto.insert(0,{
         "role":"system",
         "content":modelos[agente]['prompt']
     })
+
     playload = client.chat.completions.create(
         model=model_id,
         messages=contexto, 
@@ -114,13 +133,15 @@ def create_new_chat(data: ChatRequest):
     rota, reply = processar_mensagem(reply_chat)
 
     agente = mapa_de_agentes.get(rota)
-    print(agente + "debug")
+    log.info(f'o agente: {agente}, foi escolhido para o chat_id: {data.chat_id}')
 
     # colocando o id no banco
     if chat is None:
         cursor.execute(
             "INSERT INTO chats (chat_id, agente) VALUES (?, ?)",
-            (data.chat_id, agente)
+            (data.chat_id, agente),
+            log.info(f'o {data.chat_id} foi adiciona ao banco de dados chats, com sucesso.')
+
         )
         con.commit()
 
@@ -158,7 +179,7 @@ def read_message(data: ChatRequest):
         agente = cursor.fetchone()
         agente = agente[0]
         
-    print(agente+'debuggggggg')
+    log.info(f'o agente: {agente}, foi escolhido para o chat_id: {data.chat_id}')
 
     if agente =='router':
         mapa_de_agentes = {
@@ -168,12 +189,11 @@ def read_message(data: ChatRequest):
             }
         rota, reply = processar_mensagem(reply_chat)
 
-        print("ROTA RETORNADA:", rota)
-        print("TIPO DA ROTA:", type(rota))
+        log.info(f'A rota escolhida foi {rota}.')
+        log.info(f'O tipo de rota escolhida foi: {type(rota)}.')
 
         agente = mapa_de_agentes.get(rota)
-
-        print("AGENTE NOVO:", agente)
+        log.info(f'Novo agente: {agente}.')
 
         if agente != 'router':
             with con:

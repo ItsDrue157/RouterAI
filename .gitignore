@@ -23,3 +23,5 @@ db/*.db-shm
 
 # Logs
 *.log
+/Logs
+

@@ -2,7 +2,7 @@
 
 Backend local que recebe uma mensagem, identifica o tipo de tarefa e manda para o agente mais adequado.
 
-O projeto usa modelos pequenos rodando no LM Studio, salva os chats em SQLite e tem scripts para preparar os bancos e iniciar o sistema no Windows.
+O projeto usa modelos pequenos rodando no LM Studio, salva os chats em SQLite e tem scripts para preparar os bancos e iniciar o sistema no Windows. O roteador original continua ativo; `routers_teste.py` é uma implementação experimental desconectada.
 
 ## Por que esse projeto existe
 
@@ -15,6 +15,8 @@ Uma mensagem de programação pode ir para um agente de código, uma conta pode 
 - Roteamento automático por tipo de mensagem.
 - Modelos executados localmente pelo LM Studio.
 - Agentes geral, matemático e de programação.
+- Modelo e prompt do roteador configuráveis por JSON.
+- Modelos e prompts dos agentes especializados configuráveis por JSON.
 - Agente selecionado salvo por chat.
 - Histórico de mensagens persistido em SQLite.
 - Contexto anterior enviado nas próximas mensagens do agente.
@@ -33,6 +35,8 @@ Uma mensagem de programação pode ir para um agente de código, uma conta pode 
 6. Nas próximas mensagens, o histórico é usado como contexto.
 
 Quando o chat continua no modo geral, ele pode passar novamente pelo roteador. Quando um agente especializado é escolhido, esse agente fica ligado ao chat.
+
+O agente geral também é selecionado automaticamente: quando o modelo roteador retorna a rota `0`, `processar_mensagem()` executa a função `general()`. A chave `router` de `agents/modelos.json` configura tanto o modelo classificador quanto o modelo que gera a resposta geral. O prompt dessa chave é usado somente para a classificação.
 
 ## Stack
 
@@ -62,15 +66,17 @@ O código usa estes IDs exatos no LM Studio:
 
 | ID do modelo | Uso | Configurado em |
 | --- | --- | --- |
-| `qwen/qwen3-1.7b` | Roteador que classifica a mensagem. | `routers/router.py` |
-| `qwen/qwen3-4b-2507` | Respostas dos agentes geral, matemático e de programação. | `routers/router.py` e `main.py` |
+| `qwen/qwen3-1.7b` | Modelo roteador que classifica a mensagem, inclusive para a rota geral. | `agents/modelos.json`, chave `router` |
+| `qwen/qwen3-4b-2507` | Respostas dos agentes matemático e de programação. | `agents/modelos.json`, chaves `matematico` e `coder` |
 
-Os IDs dos modelos ainda ficam direto no código e podem ser alterados conforme os modelos disponíveis no LM Studio.
+O roteador original carrega seu modelo e prompt da chave `router` de `agents/modelos.json`. Quando ele retorna `0`, o agente geral é chamado automaticamente. As continuações dos agentes especializados consultam suas configurações no JSON; a primeira resposta continua sendo executada pelo fluxo original de `routers/router.py`.
 
 ## Estrutura do projeto
 
 ```text
 RouterAI/
+├── agents/
+│   └── modelos.json    # Modelos, nomes e prompts dos agentes
 ├── RouterAI- frontend/ # Interface web
 │   ├── vendor/         # Marked e DOMPurify
 │   ├── app.js
@@ -81,7 +87,8 @@ RouterAI/
 │   └── banco.py        # Criação e verificação dos bancos
 ├── docs/               # Rascunhos e testes
 ├── routers/
-│   └── router.py       # Roteamento e execução dos agentes
+│   ├── router.py        # Implementação ativa original
+│   └── routers_teste.py # Implementação experimental desconectada
 ├── tests/              # Testes locais
 ├── init_db.bat         # Inicializa somente os bancos
 ├── main.py             # API e persistência do histórico
@@ -150,7 +157,7 @@ lms get qwen/qwen3-4b-2507
 lms server start --port 1234
 ```
 
-Se outros modelos forem usados, os IDs também precisam ser atualizados em `routers/router.py` e `main.py`.
+Para trocar os modelos do roteador, do agente geral, do agente matemático ou do agente de programação, altere `agents/modelos.json`. O agente geral usa o modelo da chave `router`.
 
 ## Instalação em um passo
 
@@ -321,44 +328,62 @@ Resposta:
 
 Essa rota busca o agente do chat, salva a nova mensagem e usa o histórico como contexto quando o chat está com um agente especializado.
 
-## Personalizar o prompt do roteador
+## Configurar modelos e prompts
 
-O prompt atual fica na função `router()` em `routers/router.py`. Ele pode ser trocado, mas precisa manter um contrato mínimo para continuar funcionando com o restante da aplicação:
+Na V1.1, a configuração do roteador e dos agentes especializados foi organizada em `agents/modelos.json`. O projeto ativo continua usando `routers/router.py`; `routers_teste.py` contém uma alternativa experimental. Cada entrada possui:
+
+| Campo | Descrição |
+| --- | --- |
+| `name` | Nome do agente mantido como metadado; ainda não é usado pela interface. |
+| `model` | ID exato do modelo disponível no LM Studio. |
+| `prompt` | Instrução usada pelo agente. |
+| `no_think` | Comando final usado para impedir o retorno do raciocínio interno. |
+
+Estrutura resumida:
+
+```json
+{
+  "router": {
+    "name": "router",
+    "model": "qwen/qwen3-1.7b",
+    "prompt": "Classifique a mensagem: {reply}",
+    "no_think": "/no_think"
+  },
+  "coder": {
+    "name": "coder",
+    "model": "qwen/qwen3-4b-2507",
+    "prompt": "You are a great coding teacher",
+    "no_think": "/no_think"
+  },
+  "matematico": {
+    "name": "matemático",
+    "model": "qwen/qwen3-4b-2507",
+    "prompt": "You are a great coding teacher",
+    "no_think": "/no_think"
+  }
+}
+```
+
+As chaves `router`, `coder` e `matematico` são identificadores usados pela aplicação e não devem ser renomeadas sem atualizar o código. A chave `router` fornece o modelo classificador e o modelo da resposta geral. Seu prompt é usado somente na classificação e precisa manter `{reply}`, que é substituído pela mensagem recebida. O campo `no_think` define o comando enviado ao modelo em todas as respostas.
+
+No fluxo ativo, o roteador lê sua configuração ao ser carregado e `main.py` consulta o arquivo nas continuações com `coder` ou `matematico`. A implementação experimental consulta o arquivo a cada chamada e não está conectada à API.
+
+O prompt do roteador também precisa manter um contrato mínimo:
 
 - Conhecer o número e o significado de todas as rotas.
 - Escolher apenas uma rota válida.
 - Não responder à pergunta do usuário durante a classificação.
 - Retornar somente o campo `rota`, no formato esperado pelo `RouterResponse`.
-- Manter `{reply}` no ponto em que a mensagem do usuário será inserida.
 
-Template mínimo:
-
-```text
-Você é o roteador de uma aplicação com vários agentes.
-
-Classifique a mensagem em uma destas rotas:
-0 = geral
-1 = matemática
-2 = programação
-3 = raciocínio
-
-Escolha somente uma rota válida.
-Não responda à mensagem do usuário.
-Retorne somente o campo "rota" no formato solicitado.
-
-Mensagem:
-{reply}
-```
-
-A pessoa pode adicionar exemplos, regras e novas categorias, desde que atualize também `RouterResponse`, `mapa_de_funcoes` e `mapa_de_agentes` quando mudar as rotas.
-
-Hoje o prompt fica dentro do código. Uma melhoria futura é mover os prompts para uma pasta `prompts/` ou para um arquivo de configuração. Assim cada pessoa consegue criar os próprios agentes sem editar a lógica da aplicação.
+É possível adicionar exemplos, regras e novas categorias ao prompt. Se as rotas forem alteradas, também será necessário atualizar `RouterResponse`, `ROTA_PARA_AGENTE` e `mapa_de_agentes` no código.
 
 ## Estado atual
 
 - Os agentes matemático e de programação ainda usam o mesmo modelo.
 - A rota de raciocínio existe na classificação, mas ainda não está ligada a um agente.
-- Os modelos, prompts e a URL do LM Studio ainda estão definidos direto no código.
+- O roteador original está ativo; `routers_teste.py` permanece desconectado para análise.
+- As continuações dos agentes especializados carregam seus modelos e prompts do JSON.
+- A URL do LM Studio ainda está definida diretamente no código.
 - O frontend gera os IDs de chat localmente, então dois navegadores podem tentar usar o mesmo ID.
 - Autenticação e usuários ainda não foram implementados.
 
@@ -369,7 +394,8 @@ Hoje o prompt fica dentro do código. Uma melhoria futura é mover os prompts pa
 - [ ] Criar login e gerenciamento básico de usuários.
 - [ ] Vincular cada chat a uma conta.
 - [ ] Mostrar o histórico de chats da conta, não apenas as mensagens da conversa atual.
-- [ ] Carregar modelos e prompts por configuração, sem precisar alterar o código.
+- [ ] Integrar a implementação experimental baseada em JSON após revisão.
+- [ ] Mover a URL do LM Studio para o arquivo de configuração.
 - [ ] Permitir prompts personalizados para novos agentes.
 
 SQLite continua sendo suficiente para a proposta local e para poucos usuários. Se o projeto virar um serviço com muitos acessos simultâneos, aí passa a fazer sentido migrar para PostgreSQL ou outro banco servidor.

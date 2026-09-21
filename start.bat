@@ -59,7 +59,7 @@ if errorlevel 1 (
 echo.
 
 echo [3/4] Iniciando a API em http://127.0.0.1:8000 ...
-start "RouterAI - Backend" /D "%PROJECT_DIR%" cmd /k ""%PYTHON_EXE%" -m fastapi dev main.py"
+start "RouterAI - Backend" /D "%PROJECT_DIR%" cmd /k ""%PYTHON_EXE%" -m uvicorn main:app --reload --reload-exclude=logs/*"
 
 echo [4/4] Iniciando o frontend em http://127.0.0.1:5000 ...
 start "RouterAI - Frontend" /D "%FRONTEND_DIR%" cmd /k ""%PYTHON_EXE%" -m http.server 5000 --bind 127.0.0.1"
