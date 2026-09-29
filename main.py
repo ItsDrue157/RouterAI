@@ -4,7 +4,7 @@ from fastapi import FastAPI  # Criação e rotas da API
 from fastapi.middleware.cors import CORSMiddleware  # Libera requisições do frontend (CORS)
 from pydantic import BaseModel  # Validação dos dados da requisição (ChatRequest)
 from openai import OpenAI  # Conexão com os modelos no LM Studio
-from routers.router import processar_mensagem  # Roteamento e execução dos agentes
+from routers.router import router  # Roteamento e execução dos agentes
 import json
 import logging
 
@@ -111,7 +111,8 @@ def salvar_mensagem(chat_id, role, content):
 
 @app.post("/chat")
 def create_new_chat(data: ChatRequest):
-    reply_chat = data.input
+    input_chat = data.input
+    chat_id = data.chat_id
 
     con = sqlite3.connect(DB_USERS)
     cursor = con.cursor()
@@ -120,47 +121,46 @@ def create_new_chat(data: ChatRequest):
         # se n tiver vai gerar none
         cursor.execute(
             "SELECT chat_id FROM chats WHERE chat_id = ?",
-            (data.chat_id,)
+            (chat_id,)
         )
         chat = cursor.fetchone()
 
-    mapa_de_agentes = {
-        0: 'router',
-        1: 'matematico',
-        2: 'coder'
-    }
-
-    rota, reply = processar_mensagem(reply_chat)
-
-    agente = mapa_de_agentes.get(rota)
-    log.info(f'o agente: {agente}, foi escolhido para o chat_id: {data.chat_id}')
-
+    # buscar o agente 
+    agente = router(input_chat)
+    log.info(f'o agente: {agente}, foi escolhido para o chat_id: {chat_id}')
+    
+    
     # colocando o id no banco
     if chat is None:
         cursor.execute(
             "INSERT INTO chats (chat_id, agente) VALUES (?, ?)",
-            (data.chat_id, agente),
-            log.info(f'o {data.chat_id} foi adiciona ao banco de dados chats, com sucesso.')
+            (chat_id, agente),
 
         )
         con.commit()
+    log.info(f'o {chat_id} foi adiciona ao banco de dados chats com sucesso.')
 
-    # role hardcoded
+
+    # mensagem de resposta do usuario hardcoded
     salvar_mensagem(
-        chat_id=data.chat_id,
+        chat_id=chat_id,
         role='user',
-        content=reply_chat
+        content=input_chat
     )
 
-    # role hardcoded
+    #resposta a ser enviada ao usuario
+    reply = enviar_modelo(agente, chat_id)
+    
+    # mensagem de resposta da ia hardcoded
     salvar_mensagem(
-        chat_id=data.chat_id,
+        chat_id=chat_id,
         role='assistant',
         content=reply
     )
 
+    #enviando a resposta ao usuario
     return {
-        "chat_id": data.chat_id,
+        "chat_id": chat_id,
         "reply": reply
     }
 
@@ -169,48 +169,53 @@ def create_new_chat(data: ChatRequest):
 
 @app.post("/chat/message")
 def read_message(data: ChatRequest):
-    reply_chat =data.input
+    input_chat =data.input
     chat_id = data.chat_id
     con = sqlite3.connect(DB_USERS)
     cursor = con.cursor()
 
     with con:
-        cursor.execute("SELECT agente from chats WHERE chat_id=?",(data.chat_id,))
+        cursor.execute("SELECT agente from chats WHERE chat_id=?",(chat_id,))
         agente = cursor.fetchone()
         agente = agente[0]
         
-    log.info(f'o agente: {agente}, foi escolhido para o chat_id: {data.chat_id}')
+    log.info(f'o agente: {agente}, foi escolhido para o chat_id: {chat_id}')
 
-    if agente =='router':
-        mapa_de_agentes = {
-                0: 'router',
-                1: 'matematico',
-                2: 'coder'
-            }
-        rota, reply = processar_mensagem(reply_chat)
+    if agente == 'router':
+        
+        agente_novo = router(input_chat)
 
-        log.info(f'A rota escolhida foi {rota}.')
-        log.info(f'O tipo de rota escolhida foi: {type(rota)}.')
 
-        agente = mapa_de_agentes.get(rota)
-        log.info(f'Novo agente: {agente}.')
+    
+        log.info(f'Novo agente: {agente_novo}, do chat: {chat_id}.')
 
         if agente != 'router':
             with con:
-                cursor.execute('UPDATE chats SET agente=? WHERE chat_id=?',(agente,chat_id))
-        salvar_mensagem(chat_id=data.chat_id, role='user',      content=reply_chat)
-        salvar_mensagem(chat_id=data.chat_id, role='assistant', content=reply)
+                cursor.execute('UPDATE chats SET agente=? WHERE chat_id=?',(agente_novo,chat_id))
+
+        salvar_mensagem(chat_id=chat_id, role='user',              content=input_chat)
+
+        reply = enviar_modelo(agente_novo, chat_id)
+
+        salvar_mensagem(chat_id=chat_id, role='assistant',         content=reply)
+
         return {"reply": reply}
+    
     else:
         match agente:
             case 'coder':
-                salvar_mensagem(chat_id=data.chat_id, role='user',      content=reply_chat)
+                salvar_mensagem(chat_id=chat_id, role='user',      content=input_chat)
                 reply = enviar_modelo(agente,chat_id)
-                salvar_mensagem(chat_id=data.chat_id, role='assistant', content=reply)
+                salvar_mensagem(chat_id=chat_id, role='assistant', content=reply)
                 return {"reply": reply}
             
             case 'matematico':
-                salvar_mensagem(chat_id=data.chat_id, role='user',      content=reply_chat)
+                salvar_mensagem(chat_id=chat_id, role='user',      content=input_chat)
                 reply = enviar_modelo(agente,chat_id)
-                salvar_mensagem(chat_id=data.chat_id, role='assistant', content=reply)
+                salvar_mensagem(chat_id=chat_id, role='assistant', content=reply)
                 return {"reply": reply}
+            case 'general':
+                salvar_mensagem(chat_id=chat_id, role='user',      content=input_chat)
+                reply = enviar_modelo(agente,chat_id)
+                salvar_mensagem(chat_id,role='user', content=reply)
+                return {"reply":reply}
