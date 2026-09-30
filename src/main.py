@@ -5,8 +5,20 @@ from fastapi.middleware.cors import CORSMiddleware  # Libera requisições do fr
 from pydantic import BaseModel  # Validação dos dados da requisição (ChatRequest)
 from openai import OpenAI  # Conexão com os modelos no LM Studio
 from routers.router import router  # Roteamento e execução dos agentes
+from os.path import join, dirname
+from dotenv import load_dotenv
 import json
 import logging
+import os
+#
+
+
+dotenv_path = join(dirname(__file__), '.env')
+load_dotenv(dotenv_path)
+
+#VARIAVEIS NO .ENV
+base_url = os.getenv("base_url")
+api_key  = os.getenv("api_key")
 
 # Caminhos dos bancos de dados dentro da pasta db/
 BASE_DIR = Path(__file__).resolve().parent
@@ -71,7 +83,7 @@ def montar_historico(historico):
 
 
 def enviar_modelo(agente,chat_id ):
-    client = OpenAI(base_url="http://localhost:1234/v1", api_key="lm-studio")
+    client = OpenAI(base_url=base_url, api_key=api_key)
     with open ("agents/modelos.json","r", encoding="utf-8") as arquivo:
         modelos = json.load(arquivo)
 
@@ -217,5 +229,5 @@ def read_message(data: ChatRequest):
             case 'general':
                 salvar_mensagem(chat_id=chat_id, role='user',      content=input_chat)
                 reply = enviar_modelo(agente,chat_id)
-                salvar_mensagem(chat_id,role='user', content=reply)
+                salvar_mensagem(chat_id=chat_id,role='user', content=reply)
                 return {"reply":reply}

@@ -21,6 +21,7 @@ db/*.db-wal
 db/*.db-shm
 *.db
 
+
 # Logs
 *.log
 /Logs

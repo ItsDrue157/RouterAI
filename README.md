@@ -397,5 +397,8 @@ O prompt do roteador também precisa manter um contrato mínimo:
 - [ ] Integrar a implementação experimental baseada em JSON após revisão.
 - [ ] Mover a URL do LM Studio para o arquivo de configuração.
 - [ ] Permitir prompts personalizados para novos agentes.
+- [ ] Exibir os modelos disponíveis com um indicador de desempenho (verde, laranja ou vermelho), inicialmente estimado e futuramente baseado em benchmarks executados na máquina do usuário.
+- [ ] Permitir usar uma API de IA externa como modelo, com suporte à seleção manual e a fallback quando um modelo local não estiver disponível ou não for adequado.
+- [ ] Calcular dinamicamente o orçamento de contexto conforme o limite do modelo selecionado, sem depender de um modelo predefinido no LM Studio, e enviar apenas a parte relevante do histórico tanto para modelos locais quanto para APIs externas.
 
 SQLite continua sendo suficiente para a proposta local e para poucos usuários. Se o projeto virar um serviço com muitos acessos simultâneos, aí passa a fazer sentido migrar para PostgreSQL ou outro banco servidor.
