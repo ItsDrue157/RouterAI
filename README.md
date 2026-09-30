@@ -389,8 +389,7 @@ O prompt do roteador também precisa manter um contrato mínimo:
 
 ## V2 — TODO
 
-- [ ] Permitir trocar de agente no meio de um chat já criado, sem perder o histórico da conversa.
-- [ ] Adicionar uma seleção de agente parecida com a troca de modelo do ChatGPT ou Gemini.
+- [ ] Adicionar uma seleção de modelo parecida com a troca de modelo do ChatGPT ou Gemini.
 - [ ] Criar login e gerenciamento básico de usuários.
 - [ ] Vincular cada chat a uma conta.
 - [ ] Mostrar o histórico de chats da conta, não apenas as mensagens da conversa atual.

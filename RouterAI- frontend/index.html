@@ -11,6 +11,7 @@
   <script src="vendor/purify.min.js" defer></script>
   <script src="markdown.js" defer></script>
   <script src="app.js" defer></script>
+  <script src="models.js" defer></script>
 </head>
 <body>
   <div class="app">
@@ -31,7 +32,23 @@
     <main class="chat">
       <div class="chat-heading">
         <div><span class="eyebrow">SEU ASSISTENTE</span><h1>Uma conversa. Muitas possibilidades.</h1></div>
-        <span id="chat-status" class="chat-status">Nova conversa</span>
+        <div class="chat-heading-actions">
+          <span id="chat-status" class="chat-status">Nova conversa</span>
+          <div id="model-picker" class="model-picker">
+            <button id="model-toggle" class="model-toggle" type="button" aria-expanded="false" aria-controls="model-panel" aria-label="Escolher modelo">
+              <span id="model-label">Modelos</span><span class="model-chevron" aria-hidden="true">⌄</span>
+            </button>
+            <div id="model-panel" class="model-panel" hidden>
+              <p class="model-panel-title">Modelos disponíveis</p>
+              <p id="model-status" class="model-status" role="status" aria-live="polite"></p>
+              <div id="model-list" class="model-list" role="group" aria-label="Modelos disponíveis"></div>
+              <div class="model-panel-footer">
+                <p>A escolha ainda não altera as respostas.</p>
+                <button id="model-refresh" class="model-refresh" type="button">Atualizar lista</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <section id="conversation" class="conversation" aria-label="Conversa">

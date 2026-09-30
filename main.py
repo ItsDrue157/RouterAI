@@ -59,9 +59,9 @@ class ChatRequest(BaseModel):
 
 
 
-def buscar_historico(chat_id)-> list:
+def buscar_historico(chat_id) -> list:
     """
-        busca na tabela messages as mensagem com o parametro chat_id
+        busca na tabela messages as mensagens com o identificador: chat_id
     """
     con = sqlite3.connect(DB_MESSAGES)
     cursor = con.cursor()
@@ -106,8 +106,6 @@ def enviar_modelo(agente,chat_id ):
     
 
 def salvar_mensagem(chat_id, role, content):
-
-
     con = sqlite3.connect(DB_MESSAGES)
     cursor = con.cursor()
 
@@ -139,7 +137,7 @@ def create_new_chat(data: ChatRequest):
 
     # buscar o agente 
     agente = router(input_chat)
-    log.info(f'o agente: {agente}, foi escolhido para o chat_id: {chat_id}')
+    log.info(f'o agente: {agente} foi escolhido para o chat_id: {chat_id}')
     
     
     # colocando o id no banco
@@ -150,7 +148,7 @@ def create_new_chat(data: ChatRequest):
 
         )
         con.commit()
-    log.info(f'o {chat_id} foi adiciona ao banco de dados chats com sucesso.')
+    log.info(f'o {chat_id} foi adicionado ao banco de dados: chats com sucesso.')
 
 
     # mensagem de resposta do usuario hardcoded
@@ -191,14 +189,12 @@ def read_message(data: ChatRequest):
         agente = cursor.fetchone()
         agente = agente[0]
         
-    log.info(f'o agente: {agente}, foi escolhido para o chat_id: {chat_id}')
+    log.info(f'o agente: {agente} foi escolhido para o chat_id: {chat_id}')
 
     if agente == 'router':
         
         agente_novo = router(input_chat)
 
-
-    
         log.info(f'Novo agente: {agente_novo}, do chat: {chat_id}.')
 
         if agente != 'router':
@@ -217,17 +213,34 @@ def read_message(data: ChatRequest):
         match agente:
             case 'coder':
                 salvar_mensagem(chat_id=chat_id, role='user',      content=input_chat)
-                reply = enviar_modelo(agente,chat_id)
+                reply = enviar_modelo(agente, chat_id)
                 salvar_mensagem(chat_id=chat_id, role='assistant', content=reply)
                 return {"reply": reply}
             
             case 'matematico':
                 salvar_mensagem(chat_id=chat_id, role='user',      content=input_chat)
-                reply = enviar_modelo(agente,chat_id)
+                reply = enviar_modelo(agente, chat_id)
                 salvar_mensagem(chat_id=chat_id, role='assistant', content=reply)
                 return {"reply": reply}
             case 'general':
                 salvar_mensagem(chat_id=chat_id, role='user',      content=input_chat)
-                reply = enviar_modelo(agente,chat_id)
-                salvar_mensagem(chat_id=chat_id,role='user', content=reply)
+                reply = enviar_modelo(agente, chat_id)
+                salvar_mensagem(chat_id=chat_id, role='user',      content=reply)
                 return {"reply":reply}
+
+
+@app.get("/models")
+def get_models():
+    client = OpenAI(base_url=base_url, api_key=api_key)
+
+    modelos = client.models.list()
+
+    
+
+    
+
+    return {
+        "models": [
+            modelo.id for modelo in modelos.data 
+        ]
+    }

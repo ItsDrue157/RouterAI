@@ -3,6 +3,8 @@ const API_CONFIG = {
   baseUrl: "http://127.0.0.1:8000",
   createChatPath: "/chat", // Primeira mensagem: { chat_id, input }
   sendMessagePath: "/chat/message", // Próximas mensagens: { chat_id, input }
+  modelsPath: "/models", // GET: { models: ["id-do-modelo", ...] }
+  modelsTimeoutMs: 10000,
   timeoutMs: 60000,
 };
 

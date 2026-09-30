@@ -21,6 +21,8 @@ const API_CONFIG = {
   baseUrl: "http://127.0.0.1:8000",
   createChatPath: "/chat",
   sendMessagePath: "/chat/message",
+  modelsPath: "/models",
+  modelsTimeoutMs: 10000,
   timeoutMs: 60000,
 };
 ```
@@ -41,7 +43,26 @@ Resposta esperada em ambas as rotas:
 
 O backend pode omitir `chat_id` na resposta. Se retornar esse campo, ele deve corresponder ao ID enviado. O front aceita `reply`, `response`, `output` ou `text` como texto da resposta. Para outros nomes ou respostas aninhadas, ajuste `readApiResponse()`. Para mudar corpo, cabeçalhos, autenticação ou método, ajuste `requestReply()`.
 
-Se front e backend estiverem em origens diferentes, configure o **CORS no backend** para permitir `http://127.0.0.1:5500`, método `POST` e cabeçalho `Content-Type`, incluindo a resposta ao preflight `OPTIONS`. Se abrir por `localhost`, permita essa origem também.
+Se front e backend estiverem em origens diferentes, configure o **CORS no backend** para permitir `http://127.0.0.1:5500`, métodos `GET` e `POST` e cabeçalho `Content-Type`, incluindo a resposta ao preflight `OPTIONS`. Se abrir por `localhost`, permita essa origem também.
+
+## Lista de modelos
+
+O botão **Modelos** consulta `GET http://127.0.0.1:8000/models` ao abrir o menu e ao clicar em **Atualizar lista**. A rota deve ser implementada no backend, consultando os modelos do LM Studio e retornando este formato:
+
+```json
+{
+  "models": [
+    "qwen/qwen3-1.7b",
+    "qwen/qwen3-4b-2507"
+  ]
+}
+```
+
+Cada string é o identificador/nome exibido no menu. A lista é dinâmica: dois modelos geram dois itens, quatro geram quatro. A altura acompanha o conteúdo e listas longas têm rolagem. Não há descrições nem espaços reservados. IDs repetidos são exibidos uma única vez, mantendo a ordem recebida.
+
+Sem modelos, retorne `{ "models": [] }`. O menu mostra um aviso para lista vazia, falha de conexão, erro HTTP, resposta inválida ou timeout, com opção de atualizar. Até a rota existir, o menu exibirá o erro HTTP recebido.
+
+A escolha marca o item e atualiza o nome no botão, apenas nesta página. Ela ainda não é enviada em `/chat` ou `/chat/message`, não muda o modelo do agente/router e não é salva no banco. `models.js` controla a lista; URL e timeout ficam em `API_CONFIG`, no início de `app.js`.
 
 ## IDs e criação do chat
 
