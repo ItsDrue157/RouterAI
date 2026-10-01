@@ -7,6 +7,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 DB_PATH = Path(__file__).resolve().parent.parent / "db" / "messages.db"
 
 def buscar_historico(chat_id):
+    """Busca no banco as mensagens associadas ao chat informado."""
     con = sqlite3.connect(DB_PATH)
     cursor = con.cursor()
 
@@ -21,6 +22,7 @@ def buscar_historico(chat_id):
     #     print (agente)
 
 def montar_historico(historico):
+    """Converte as mensagens do banco em uma lista com papel e conteúdo."""
     messages = []
     
     for role, content in historico:

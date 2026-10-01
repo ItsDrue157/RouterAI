@@ -4,9 +4,9 @@ from fastapi import FastAPI  # Criação e rotas da API
 from fastapi.middleware.cors import CORSMiddleware  # Libera requisições do frontend (CORS)
 from pydantic import BaseModel  # Validação dos dados da requisição (ChatRequest)
 from openai import OpenAI  # Conexão com os modelos no LM Studio
-from routers.router import router  # Roteamento e execução dos agentes
 from os.path import join, dirname
 from dotenv import load_dotenv
+from routers.router import router  # Roteamento e execução dos agentes, precisa ser antes pois deu erro de api :)
 import json
 import logging
 import os
@@ -73,6 +73,7 @@ def buscar_historico(chat_id) -> list:
     return historico
 
 def montar_historico(historico):
+    """Converte as mensagens do banco em uma lista para enviar ao modelo."""
     messages = []
     for role, content in historico:
         messages.append({'role':role, 'content':content})
@@ -83,6 +84,7 @@ def montar_historico(historico):
 
 
 def enviar_modelo(agente,chat_id ):
+    """Envia o histórico do chat ao modelo do agente e retorna a resposta."""
     client = OpenAI(base_url=base_url, api_key=api_key)
     with open ("agents/modelos.json","r", encoding="utf-8") as arquivo:
         modelos = json.load(arquivo)
@@ -95,17 +97,18 @@ def enviar_modelo(agente,chat_id ):
         "content":modelos[agente]['prompt']
     })
 
-    playload = client.chat.completions.create(
+    payload = client.chat.completions.create(
         model=model_id,
         messages=contexto, 
         temperature=0.7
     )
 
-    return playload.choices[0].message.content.strip()
+    return payload.choices[0].message.content.strip()
 
     
 
 def salvar_mensagem(chat_id, role, content):
+    """Salva uma mensagem do usuário ou do assistente no histórico do chat."""
     con = sqlite3.connect(DB_MESSAGES)
     cursor = con.cursor()
 
@@ -121,6 +124,7 @@ def salvar_mensagem(chat_id, role, content):
 
 @app.post("/chat")
 def create_new_chat(data: ChatRequest):
+    """Cria o chat se necessário, escolhe o agente e responde à primeira mensagem."""
     input_chat = data.input
     chat_id = data.chat_id
 
@@ -179,6 +183,7 @@ def create_new_chat(data: ChatRequest):
 
 @app.post("/chat/message")
 def read_message(data: ChatRequest):
+    """Responde a uma nova mensagem usando o agente associado ao chat."""
     input_chat =data.input
     chat_id = data.chat_id
     con = sqlite3.connect(DB_USERS)
@@ -231,13 +236,10 @@ def read_message(data: ChatRequest):
 
 @app.get("/models")
 def get_models():
+    """Lista os modelos disponíveis no servidor configurado."""
     client = OpenAI(base_url=base_url, api_key=api_key)
 
     modelos = client.models.list()
-
-    
-
-    
 
     return {
         "models": [
