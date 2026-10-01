@@ -5,7 +5,7 @@ const API_CONFIG = {
   sendMessagePath: "/chat/message", // Próximas mensagens: { chat_id, input }
   modelsPath: "/models", // GET: { models: ["id-do-modelo", ...] }
   modelsTimeoutMs: 10000,
-  timeoutMs: 60000,
+  timeoutMs: 180000, // 3 minutos
 };
 
 // Adapte aqui se o backend usar outros nomes ou um objeto aninhado.

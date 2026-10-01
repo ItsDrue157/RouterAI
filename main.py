@@ -100,7 +100,8 @@ def enviar_modelo(agente,chat_id ):
     payload = client.chat.completions.create(
         model=model_id,
         messages=contexto, 
-        temperature=0.7
+        temperature=0.7,
+        timeout=180
     )
 
     return payload.choices[0].message.content.strip()
@@ -140,7 +141,7 @@ def create_new_chat(data: ChatRequest):
         chat = cursor.fetchone()
 
     # buscar o agente 
-    agente = 'router(input_chat)'
+    agente = router(input_chat)
     log.info(f'o agente: {agente} foi escolhido para o chat_id: {chat_id}')
     
     
@@ -205,13 +206,13 @@ def read_message(data: ChatRequest):
 
 
 
-    if agente == 'router':
+    if agente == 'general':
         
         agente_novo = router(input_chat)
 
         log.info(f'Novo agente: {agente_novo}, do chat: {chat_id}.')
 
-        if agente != 'router':
+        if agente_novo != 'general':
             with con:
                 cursor.execute('UPDATE chats SET agente=? WHERE chat_id=?',(agente_novo,chat_id))
 
@@ -239,7 +240,7 @@ def read_message(data: ChatRequest):
             case 'general':
                 salvar_mensagem(chat_id=chat_id, role='user',      content=input_chat)
                 reply = enviar_modelo(agente, chat_id)
-                salvar_mensagem(chat_id=chat_id, role='assistant',      content=reply)
+                salvar_mensagem(chat_id=chat_id, role='assistant', content=reply)
                 return {"reply":reply}
 
 
