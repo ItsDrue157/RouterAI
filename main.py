@@ -140,7 +140,7 @@ def create_new_chat(data: ChatRequest):
         chat = cursor.fetchone()
 
     # buscar o agente 
-    agente = router(input_chat)
+    agente = 'router(input_chat)'
     log.info(f'o agente: {agente} foi escolhido para o chat_id: {chat_id}')
     
     
@@ -189,12 +189,21 @@ def read_message(data: ChatRequest):
     con = sqlite3.connect(DB_USERS)
     cursor = con.cursor()
 
-    with con:
-        cursor.execute("SELECT agente from chats WHERE chat_id=?",(chat_id,))
-        agente = cursor.fetchone()
-        agente = agente[0]
-        
-    log.info(f'o agente: {agente} foi escolhido para o chat_id: {chat_id}')
+    #verificar se o chat_id existe no banco
+    try:
+        with con:
+                cursor.execute("SELECT agente from chats WHERE chat_id=?",(chat_id,))
+                agente = cursor.fetchone()
+                agente = agente[0]
+        log.info(f'o agente: {agente} foi escolhido para o chat_id: {chat_id}')
+
+        if agente is None:
+            log.warning(f'A consulta do agente para o chat_id: {chat_id}, não obteve resultado.')
+    
+    except sqlite3.Error as e:
+        log.error(f'Error a consultar o sqlite para o chat_id: {chat_id}, error: {e}')
+
+
 
     if agente == 'router':
         
@@ -230,7 +239,7 @@ def read_message(data: ChatRequest):
             case 'general':
                 salvar_mensagem(chat_id=chat_id, role='user',      content=input_chat)
                 reply = enviar_modelo(agente, chat_id)
-                salvar_mensagem(chat_id=chat_id, role='user',      content=reply)
+                salvar_mensagem(chat_id=chat_id, role='assistant',      content=reply)
                 return {"reply":reply}
 
 
