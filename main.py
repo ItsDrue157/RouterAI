@@ -4,7 +4,6 @@ from fastapi import FastAPI  # Criação e rotas da API
 from fastapi.middleware.cors import CORSMiddleware  # Libera requisições do frontend (CORS)
 from pydantic import BaseModel  # Validação dos dados da requisição (ChatRequest)
 from openai import OpenAI  # Conexão com os modelos no LM Studio
-from os.path import join, dirname
 from dotenv import load_dotenv
 from routers.router import router  # Roteamento e execução dos agentes, precisa ser antes pois deu erro de api :)
 import json
@@ -13,17 +12,18 @@ import os
 #
 
 
-dotenv_path = join(dirname(__file__), '.env')
-load_dotenv(dotenv_path)
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env")
 
 #VARIAVEIS NO .ENV
 base_url = os.getenv("base_url")
 api_key  = os.getenv("api_key")
 
 # Caminhos dos bancos de dados dentro da pasta db/
-BASE_DIR = Path(__file__).resolve().parent
 DB_USERS = BASE_DIR / "db" / "users.db"
 DB_MESSAGES = BASE_DIR / "db" / "messages.db"
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI()
 
@@ -44,7 +44,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     handlers=[
-        logging.FileHandler("logs/routerai.log", encoding="utf-8"),
+        logging.FileHandler(LOG_DIR / "routerai.log", encoding="utf-8"),
         logging.StreamHandler()
     ]
 )

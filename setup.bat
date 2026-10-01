@@ -6,6 +6,11 @@ title RouterAI - Primeira configuracao
 set "PROJECT_DIR=%~dp0"
 if "%PROJECT_DIR:~-1%"=="\" set "PROJECT_DIR=%PROJECT_DIR:~0,-1%"
 cd /d "%PROJECT_DIR%"
+if not exist "%PROJECT_DIR%\logs" mkdir "%PROJECT_DIR%\logs"
+if errorlevel 1 (
+    echo [ERRO] Nao foi possivel criar a pasta de logs.
+    exit /b 1
+)
 
 echo ======================================================
 echo          RouterAI - Instalacao automatica
