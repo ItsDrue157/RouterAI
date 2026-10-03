@@ -30,6 +30,8 @@ h1 { font-size: 14px; font-weight: 550; margin: 7px 0 0; }
 .chat-heading-actions { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .chat-heading-actions .chat-status { max-width: 120px; }
 .model-picker { position: relative; min-width: 0; }
+.model-toggle:not(:disabled), .model-option:not(:disabled), .model-refresh:not(:disabled) { cursor: pointer; }
+.model-toggle > *, .model-option > * { cursor: inherit; }
 .model-toggle { display: flex; align-items: center; gap: 10px; max-width: 220px; padding: 9px 14px; border: 1px solid var(--line); border-radius: 20px; background: #f5f4fb; color: inherit; font-size: 12px; font-weight: 600; }
 #model-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .model-chevron { flex-shrink: 0; color: var(--muted); }

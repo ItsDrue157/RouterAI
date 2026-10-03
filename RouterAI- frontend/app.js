@@ -1,8 +1,8 @@
 // EDITE AQUI para combinar com o seu backend.
 const API_CONFIG = {
   baseUrl: "http://127.0.0.1:8000",
-  createChatPath: "/chat", // Primeira mensagem: { chat_id, input }
-  sendMessagePath: "/chat/message", // Próximas mensagens: { chat_id, input }
+  createChatPath: "/chat", // Primeira mensagem: { chat_id, input, modelo }
+  sendMessagePath: "/chat/message", // Proximas mensagens: { chat_id, input, modelo }
   modelsPath: "/models", // GET: { models: ["id-do-modelo", ...] }
   modelsTimeoutMs: 10000,
   timeoutMs: 180000, // 3 minutos
@@ -12,6 +12,7 @@ const API_CONFIG = {
 function readApiResponse(data) {
   return {
     chatId: data.chat_id,
+    modelo: data.modelo,
     reply: data.reply ?? data.response ?? data.output ?? data.text,
   };
 }
@@ -61,6 +62,18 @@ function validId(value) {
     || (typeof value === "number" && Number.isFinite(value));
 }
 
+function validModel(value) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+// Persiste apenas o modelo confirmado pelo backend, nunca uma escolha pendente.
+function confirmConversationModel(model) {
+  if (!validModel(model)) return;
+  state.modelo = model;
+  setSelectedModel(model);
+  saveConversation();
+}
+
 function restoreConversation() {
   try {
     // Mantém o chat ao atualizar a página, apenas nesta sessão/aba.
@@ -68,6 +81,7 @@ function restoreConversation() {
     if (saved && Array.isArray(saved.messages)) {
       return {
         chatId: validId(saved.chatId) ? saved.chatId : null,
+        modelo: validModel(saved.modelo) ? saved.modelo : null,
         created: validId(saved.chatId) && (typeof saved.created === "boolean" ? saved.created : true),
         messages: saved.messages.filter(message =>
           ["user", "assistant"].includes(message.role) && typeof message.content === "string"
@@ -79,7 +93,7 @@ function restoreConversation() {
       };
     }
   } catch { /* O chat funciona mesmo com armazenamento indisponível. */ }
-  return { chatId: null, created: false, messages: [] };
+  return { chatId: null, created: false, modelo: null, messages: [] };
 }
 
 function saveConversation() {
@@ -131,6 +145,7 @@ function setBusy(value) {
   busy = value;
   input.disabled = value;
   newChatButton.disabled = value;
+  setModelPickerBusy(value);
   loading.hidden = !value;
   sendButton.disabled = value || !input.value.trim();
   form.setAttribute("aria-busy", String(value));
@@ -147,6 +162,7 @@ async function reserveCurrentChatId() {
 }
 
 async function buildChatRequest(text) {
+  const modelForRequest = selectedModel;
   const chatId = await reserveCurrentChatId();
   // Ter um ID reservado não significa que o backend já criou a conversa.
   const isNewChat = !state.created;
@@ -155,7 +171,7 @@ async function buildChatRequest(text) {
     isNewChat,
     url: `${API_CONFIG.baseUrl.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`,
     // Este é o corpo enviado para o backend em toda mensagem.
-    body: { chat_id: chatId, input: text },
+    body: { chat_id: chatId, input: text, modelo: modelForRequest },
   };
 }
 
@@ -171,14 +187,35 @@ async function requestReply(text) {
       body: JSON.stringify(request.body),
       signal: controller.signal,
     });
-    if (!response.ok) throw new Error(`O backend retornou um erro (HTTP ${response.status}). Confira o serviço e o endpoint configurado.`);
     let data;
     try { data = await response.json(); }
     catch (error) {
       if (error.name === "AbortError") throw error;
-      throw new Error("O backend precisa retornar uma resposta JSON válida.");
+      if (!response.ok) throw new Error(`O backend retornou um erro (HTTP ${response.status}).`);
+      throw new Error("O backend precisa retornar uma resposta JSON valida.");
     }
-    if (!data || typeof data !== "object") throw new Error("O backend retornou um formato de resposta inesperado.");
+    if (!data || typeof data !== "object") {
+      throw new Error("O backend retornou um formato de resposta inesperado.");
+    }
+    if (!response.ok) {
+      // Um erro de geracao pode confirmar que a escolha ja foi salva.
+      const details = data.detail && typeof data.detail === "object" ? data.detail : data;
+      const responseChatId = details.chat_id ?? data.chat_id;
+      if (responseChatId !== undefined && String(responseChatId) !== String(request.body.chat_id)) {
+        throw new Error("O backend retornou um chat_id diferente do enviado.");
+      }
+      if (validModel(details.modelo)) {
+        if (request.isNewChat) {
+          state.created = true;
+          updateStatus();
+        }
+        confirmConversationModel(details.modelo);
+      }
+      const message = typeof data.detail === "string" ? data.detail : details.message;
+      throw new Error(typeof message === "string"
+        ? message
+        : `O backend retornou um erro (HTTP ${response.status}). Tente novamente com o modelo escolhido.`);
+    }
     const result = readApiResponse(data);
     if (result.chatId !== undefined && String(result.chatId) !== String(state.chatId)) {
       throw new Error("O backend retornou um chat_id diferente do enviado. Confira o contrato de criação do chat.");
@@ -189,6 +226,8 @@ async function requestReply(text) {
       saveConversation();
       updateStatus();
     }
+    // Compatibilidade: no sucesso, uma escolha explicita enviada foi efetivada.
+    confirmConversationModel(validModel(result.modelo) ? result.modelo : request.body.modelo);
     if (typeof result.reply !== "string" || !result.reply.trim()) {
       throw new Error("Não encontrei o texto da resposta. Ajuste readApiResponse() em app.js para o formato do seu backend.");
     }
@@ -249,7 +288,9 @@ newChatButton.addEventListener("click", async () => {
   try {
     // Ao clicar em Nova conversa, o próximo ID já fica reservado no front.
     const chatId = await allocateChatId();
-    state = { chatId, created: false, messages: [] };
+    state = { chatId, created: false, modelo: null, messages: [] };
+    setSelectedModel(null);
+    closeModelPanel();
     saveConversation();
   } catch (error) {
     errorBox.textContent = error.message;

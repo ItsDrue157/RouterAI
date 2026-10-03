@@ -16,6 +16,7 @@ SCHEMA_USERS = """
 CREATE TABLE IF NOT EXISTS chats (
     chat_id TEXT PRIMARY KEY,
     agente TEXT NOT NULL,
+    modelo TEXT NOT NULL, 
     criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 """

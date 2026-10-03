@@ -1,6 +1,6 @@
 import sqlite3  # Banco de dados local (histórico e chats)
 from pathlib import Path  # Resolução dos caminhos dos bancos
-from fastapi import FastAPI  # Criação e rotas da API
+from fastapi import FastAPI, HTTPException  # Criação e rotas da API
 from fastapi.middleware.cors import CORSMiddleware  # Libera requisições do frontend (CORS)
 from pydantic import BaseModel  # Validação dos dados da requisição (ChatRequest)
 from openai import OpenAI  # Conexão com os modelos no LM Studio
@@ -9,6 +9,7 @@ from routers.router import router  # Roteamento e execução dos agentes, precis
 import json
 import logging
 import os
+import openai
 #
 
 
@@ -56,6 +57,17 @@ log = logging.getLogger(__name__)
 class ChatRequest(BaseModel):
     chat_id: int
     input: str
+    modelo: str | None = None
+
+
+def buscar_modelo_padrao(agente):
+    with open("agents/modelos.json", "r", encoding="utf-8") as arquivo:
+        modelos = json.load(arquivo)
+
+    modelo = modelos[agente]['model']
+
+    return modelo
+
 
 
 
@@ -83,13 +95,13 @@ def montar_historico(historico):
 
 
 
-def enviar_modelo(agente,chat_id ):
+def enviar_modelo(agente,chat_id, modelo):
     """Envia o histórico do chat ao modelo do agente e retorna a resposta."""
     client = OpenAI(base_url=base_url, api_key=api_key)
     with open ("agents/modelos.json","r", encoding="utf-8") as arquivo:
         modelos = json.load(arquivo)
 
-    model_id = modelos[agente]['model']
+    #model_id = modelos[agente]['model']
     contexto = montar_historico(buscar_historico(chat_id))
     
     contexto.insert(0,{
@@ -98,7 +110,7 @@ def enviar_modelo(agente,chat_id ):
     })
 
     payload = client.chat.completions.create(
-        model=model_id,
+        model=modelo,
         messages=contexto, 
         temperature=0.7,
         timeout=180
@@ -128,12 +140,13 @@ def create_new_chat(data: ChatRequest):
     """Cria o chat se necessário, escolhe o agente e responde à primeira mensagem."""
     input_chat = data.input
     chat_id = data.chat_id
+    
 
     con = sqlite3.connect(DB_USERS)
     cursor = con.cursor()
 
+    # se n tiver vai gerar none
     with con:
-        # se n tiver vai gerar none
         cursor.execute(
             "SELECT chat_id FROM chats WHERE chat_id = ?",
             (chat_id,)
@@ -143,17 +156,22 @@ def create_new_chat(data: ChatRequest):
     # buscar o agente 
     agente = router(input_chat)
     log.info(f'o agente: {agente} foi escolhido para o chat_id: {chat_id}')
-    
+
+
+    modelo = buscar_modelo_padrao(agente)
+    if data.modelo is not None:
+        modelo = data.modelo
+
     
     # colocando o id no banco
     if chat is None:
         cursor.execute(
-            "INSERT INTO chats (chat_id, agente) VALUES (?, ?)",
-            (chat_id, agente),
-
+            "INSERT INTO chats (chat_id, agente, modelo) VALUES (?, ?, ?)",
+            (chat_id, agente, modelo),
         )
         con.commit()
-    log.info(f'o {chat_id} foi adicionado ao banco de dados: chats com sucesso.')
+    log.info(f'o {chat_id}, o agente: {agente}, e o modelo: {modelo}, foram adicionados na tabema chats com sucesso.')
+
 
 
     # mensagem de resposta do usuario hardcoded
@@ -164,7 +182,7 @@ def create_new_chat(data: ChatRequest):
     )
 
     #resposta a ser enviada ao usuario
-    reply = enviar_modelo(agente, chat_id)
+    reply = enviar_modelo(agente, chat_id, modelo)
     
     # mensagem de resposta da ia hardcoded
     salvar_mensagem(
@@ -187,23 +205,36 @@ def read_message(data: ChatRequest):
     """Responde a uma nova mensagem usando o agente associado ao chat."""
     input_chat =data.input
     chat_id = data.chat_id
+
     con = sqlite3.connect(DB_USERS)
     cursor = con.cursor()
 
     #verificar se o chat_id existe no banco
     try:
         with con:
-                cursor.execute("SELECT agente from chats WHERE chat_id=?",(chat_id,))
+                cursor.execute("SELECT agente, modelo from chats WHERE chat_id=?",(chat_id,))
                 agente = cursor.fetchone()
-                agente = agente[0]
-        log.info(f'o agente: {agente} foi escolhido para o chat_id: {chat_id}')
 
-        if agente is None:
-            log.warning(f'A consulta do agente para o chat_id: {chat_id}, não obteve resultado.')
+                if agente is None:
+                    log.error(f'A consulta do agente para o chat_id: {chat_id}, não obteve resultado.')
+                    raise HTTPException(status_code=404, detail="chat não encontrado")
+                #desempacota o agente q é uma tupla
+                agente, modelo = agente
+
+        log.info(f'o agente: {agente} e o modelo: {modelo} foram escolhidos para o chat_id: {chat_id}')
+
     
+
     except sqlite3.Error as e:
         log.error(f'Error a consultar o sqlite para o chat_id: {chat_id}, error: {e}')
+        raise e
 
+    if data.modelo is not None and data.modelo != modelo:
+            modelo = data.modelo
+            with con:
+                cursor.execute("UPDATE chats SET modelo=? WHERE chat_id=?",(modelo, chat_id))
+                
+    
 
 
     if agente == 'general':
@@ -214,11 +245,11 @@ def read_message(data: ChatRequest):
 
         if agente_novo != 'general':
             with con:
-                cursor.execute('UPDATE chats SET agente=? WHERE chat_id=?',(agente_novo,chat_id))
+                cursor.execute('UPDATE chats SET agente=? WHERE chat_id=?',(agente_novo, chat_id))
 
         salvar_mensagem(chat_id=chat_id, role='user',              content=input_chat)
 
-        reply = enviar_modelo(agente_novo, chat_id)
+        reply = enviar_modelo(agente_novo, chat_id, modelo)
 
         salvar_mensagem(chat_id=chat_id, role='assistant',         content=reply)
 
@@ -228,18 +259,19 @@ def read_message(data: ChatRequest):
         match agente:
             case 'coder':
                 salvar_mensagem(chat_id=chat_id, role='user',      content=input_chat)
-                reply = enviar_modelo(agente, chat_id)
+                reply = enviar_modelo(agente, chat_id, modelo)
                 salvar_mensagem(chat_id=chat_id, role='assistant', content=reply)
                 return {"reply": reply}
             
             case 'matematico':
                 salvar_mensagem(chat_id=chat_id, role='user',      content=input_chat)
-                reply = enviar_modelo(agente, chat_id)
+                reply = enviar_modelo(agente, chat_id, modelo)
                 salvar_mensagem(chat_id=chat_id, role='assistant', content=reply)
                 return {"reply": reply}
+            
             case 'general':
                 salvar_mensagem(chat_id=chat_id, role='user',      content=input_chat)
-                reply = enviar_modelo(agente, chat_id)
+                reply = enviar_modelo(agente, chat_id, modelo)
                 salvar_mensagem(chat_id=chat_id, role='assistant', content=reply)
                 return {"reply":reply}
 

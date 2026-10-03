@@ -1,4 +1,4 @@
-// Seleção apenas visual nesta etapa. Não altera o corpo das mensagens do chat.
+// A selecao do menu e enviada com a proxima mensagem.
 const modelPicker = document.querySelector("#model-picker");
 const modelToggle = document.querySelector("#model-toggle");
 const modelPanel = document.querySelector("#model-panel");
@@ -8,6 +8,8 @@ const modelStatus = document.querySelector("#model-status");
 const modelRefresh = document.querySelector("#model-refresh");
 let selectedModel = null;
 let modelsLoading = false;
+// null significa que nenhuma consulta teve sucesso; [] e um cache vazio valido.
+let cachedModels = null;
 
 function closeModelPanel(returnFocus = false) {
   modelPanel.hidden = true;
@@ -15,42 +17,60 @@ function closeModelPanel(returnFocus = false) {
   if (returnFocus) modelToggle.focus();
 }
 
-function renderModels(models) {
-  modelList.replaceChildren();
-  if (!models.includes(selectedModel)) selectedModel = null;
+function setSelectedModel(model) {
+  selectedModel = model;
   modelLabel.textContent = selectedModel ?? "Modelos";
   modelToggle.title = selectedModel ?? "Escolher modelo";
+  for (const option of modelList.children) {
+    option.setAttribute("aria-pressed", String(option.dataset.modelId === selectedModel));
+    option.disabled = busy;
+  }
+}
+
+function setModelPickerBusy(value) {
+  modelToggle.disabled = value;
+  modelRefresh.disabled = value || modelsLoading;
+  for (const option of modelList.children) option.disabled = value;
+  if (value) closeModelPanel();
+}
+
+function renderModels(models) {
+  modelList.replaceChildren();
   for (const id of models) {
     const option = document.createElement("button");
     option.type = "button";
     option.className = "model-option";
-    option.setAttribute("aria-pressed", String(id === selectedModel));
+    option.dataset.modelId = id;
     const check = document.createElement("span");
     check.className = "model-check";
     check.setAttribute("aria-hidden", "true");
-    check.textContent = "✓";
+    check.textContent = "V";
     const name = document.createElement("span");
     name.className = "model-name";
     name.textContent = id;
     option.append(check, name);
     option.addEventListener("click", () => {
-      selectedModel = id;
-      modelLabel.textContent = id;
-      modelToggle.title = id;
-      for (const item of modelList.children) {
-        item.setAttribute("aria-pressed", String(item === option));
-      }
+      if (busy) return;
+      setSelectedModel(id);
       closeModelPanel(true);
     });
     modelList.append(option);
   }
+  // A lista pode mudar; isso nao deve apagar o modelo vinculado ao chat.
+  setSelectedModel(selectedModel);
 }
 
-async function loadModels() {
+async function loadModels(forceRefresh = false) {
   if (modelsLoading) return;
+  if (!forceRefresh && cachedModels !== null) {
+    renderModels(cachedModels);
+    modelStatus.hidden = cachedModels.length > 0;
+    modelStatus.textContent = cachedModels.length ? "" : "Nenhum modelo disponivel.";
+    return;
+  }
   modelsLoading = true;
   modelRefresh.disabled = true;
-  modelList.replaceChildren();
+  if (cachedModels === null) modelList.replaceChildren();
   modelList.setAttribute("aria-busy", "true");
   modelStatus.hidden = false;
   modelStatus.textContent = "Carregando modelos…";
@@ -69,6 +89,7 @@ async function loadModels() {
       throw new Error("A lista de modelos recebida está em um formato inválido.");
     }
     const models = [...new Set(data.models)];
+    cachedModels = models;
     renderModels(models);
     modelStatus.hidden = models.length > 0;
     modelStatus.textContent = models.length ? "" : "Nenhum modelo disponível.";
@@ -83,12 +104,13 @@ async function loadModels() {
   } finally {
     clearTimeout(timeout);
     modelsLoading = false;
-    modelRefresh.disabled = false;
+    modelRefresh.disabled = busy;
     modelList.setAttribute("aria-busy", "false");
   }
 }
 
 modelToggle.addEventListener("click", () => {
+  if (busy) return;
   if (!modelPanel.hidden) {
     closeModelPanel();
     return;
@@ -97,7 +119,10 @@ modelToggle.addEventListener("click", () => {
   modelToggle.setAttribute("aria-expanded", "true");
   void loadModels();
 });
-modelRefresh.addEventListener("click", () => void loadModels());
+modelRefresh.addEventListener("click", () => {
+  if (busy) return;
+  void loadModels(true);
+});
 document.addEventListener("click", event => {
   if (!modelPicker.contains(event.target)) closeModelPanel();
 });
@@ -110,3 +135,7 @@ modelPicker.addEventListener("keydown", event => {
     closeModelPanel(true);
   }
 });
+
+// app.js restaura o estado antes de carregar este script.
+setSelectedModel(state.modelo);
+setModelPickerBusy(busy);
