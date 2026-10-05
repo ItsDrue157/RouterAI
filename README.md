@@ -4,6 +4,10 @@ RouterAI é um chat de IA que identifica o tipo de tarefa e direciona a mensagem
 
 O projeto nasceu da ideia de aproveitar modelos de linguagem pequenos (SLMs) em hardware limitado. Ele reúne os modelos em uma interface, com roteamento automático de agentes e escolha manual do modelo de resposta.
 
+## Interface
+![Interface do routerAI](docs/images/routerai_homepage.png)
+
+
 ## Features
 
 - Roteamento automático entre agentes com classificação em JSON Schema.
