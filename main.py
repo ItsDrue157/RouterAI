@@ -1,19 +1,21 @@
-import sqlite3  # Banco de dados local (histórico e chats)
 from pathlib import Path  # Resolução dos caminhos dos bancos
 from fastapi import FastAPI, HTTPException  # Criação e rotas da API
 from fastapi.middleware.cors import CORSMiddleware  # Libera requisições do frontend (CORS)
 from pydantic import BaseModel  # Validação dos dados da requisição (ChatRequest)
 from openai import OpenAI  # Conexão com os modelos no LM Studio
-from dotenv import load_dotenv
+from dotenv import load_dotenv # carrega o .env
 from routers.router import router  # Roteamento e execução dos agentes, precisa ser antes pois deu erro de api :)
-import json
-import logging
-import os
-import openai
-#
+import sqlite3  # Banco de dados local (histórico e chats)
+import json # ler arquivos json
+import logging # adiciona o logs
+import os # funcoes para carregar o env
+
+
 
 
 BASE_DIR = Path(__file__).resolve().parent
+
+#caminho do .env
 load_dotenv(BASE_DIR / ".env")
 
 #VARIAVEIS NO .ENV
@@ -26,6 +28,7 @@ DB_MESSAGES = BASE_DIR / "db" / "messages.db"
 LOG_DIR = BASE_DIR / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
+#inicia a instancia do FastAPI
 app = FastAPI()
 
 #precisa disso pra rodar no local
@@ -41,6 +44,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],)
 
+#arquivo de config do log
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
@@ -49,11 +53,12 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+#evita que grave no .log os updade do fastapi
 logging.getLogger("watchfiles.main").setLevel(logging.WARNING)
 
 log = logging.getLogger(__name__)
 
-
+#padronizar o type do chat_id, input e modelo
 class ChatRequest(BaseModel):
     chat_id: int
     input: str
@@ -67,9 +72,6 @@ def buscar_modelo_padrao(agente):
     modelo = modelos[agente]['model']
 
     return modelo
-
-
-
 
 def buscar_historico(chat_id) -> list:
     """
@@ -91,9 +93,6 @@ def montar_historico(historico):
         messages.append({'role':role, 'content':content})
     
     return messages
-
-
-
 
 def enviar_modelo(agente,chat_id, modelo):
     """Envia o histórico do chat ao modelo do agente e retorna a resposta."""
@@ -118,8 +117,6 @@ def enviar_modelo(agente,chat_id, modelo):
 
     return payload.choices[0].message.content.strip()
 
-    
-
 def salvar_mensagem(chat_id, role, content):
     """Salva uma mensagem do usuário ou do assistente no histórico do chat."""
     con = sqlite3.connect(DB_MESSAGES)
@@ -129,11 +126,6 @@ def salvar_mensagem(chat_id, role, content):
     with con:
         cursor.execute("INSERT INTO messages (chat_id, role, content) VALUES (?,?,?)", (chat_id, role,content))
         return True
-
-
-
-
-
 
 @app.post("/chat")
 def create_new_chat(data: ChatRequest):
@@ -196,9 +188,6 @@ def create_new_chat(data: ChatRequest):
         "chat_id": chat_id,
         "reply": reply
     }
-
-
-
 
 @app.post("/chat/message")
 def read_message(data: ChatRequest):
@@ -274,7 +263,6 @@ def read_message(data: ChatRequest):
                 reply = enviar_modelo(agente, chat_id, modelo)
                 salvar_mensagem(chat_id=chat_id, role='assistant', content=reply)
                 return {"reply":reply}
-
 
 @app.get("/models")
 def get_models():
